@@ -7,7 +7,8 @@ import math
 from datetime import date
 import boto3
 import logging
-
+import os
+import sys
 
 formatter = logging.Formatter('[%(levelname)s] %(message)s')
 log = logging.getLogger()
@@ -46,7 +47,20 @@ def write_to_db(products, price_and_size, current_data):
     db.close()
 
 def lambda_handler(event, context):
+    lambda_client = boto3.client('lambda')
+    s3 = boto3.client('s3')
+    bucket_name = os.environ['MAIN_BUCKET']
+
+    settings_file = s3.get_object(Bucket=bucket_name, Key=os.environ['SETTINGS_FILE'])
+    settings_file_content = json.loads(settings_file['Body'].read().decode('utf-8'))
+    ignore_bonus_values_exact = settings_file_content["ignore_bonus_values_exact"]
+    ignore_bonus_values_contains = settings_file_content["ignore_bonus_values_contains"]
+    # sys.exit(1)
+    # Write JSON data to a file-like object
+
     try:
+
+        unknown_bonus_values = []
         today = date.today().strftime('%Y-%m-%d')
         log.info("Setup API connection with AH API")
         connector = AHConnector()
@@ -71,8 +85,8 @@ def lambda_handler(event, context):
         #               '1165', '1662', '11717', '1730', '20130', '6401', '6402', '6405', '1045', '1796', '20129', '6409']
         # category_list = [
         #     {
-        #         "id": "6401",
-        #         "name": "Aardappel, groente, fruit"
+        #         "id": "1045",
+        #         "name": "Drogisterij"
         #     }
         # ]
 
@@ -86,6 +100,19 @@ def lambda_handler(event, context):
 
     except Exception as e:
         log.error(str(e))
+        log.info('Mailing error')
+        payload = {
+            "to": os.environ['MAIL_CONTACT'],
+            "from": os.environ['MAIL_SENDER'],
+            "subject": "Foutmelding bij verwerken AH",
+            "content": str(e)
+        }
+
+        response = lambda_client.invoke(
+            FunctionName='sendMail',  # Replace with the name of your sendMail function
+            InvocationType='Event',  # Use 'RequestResponse' for synchronous invocation
+            Payload=json.dumps(payload)
+        )
         return {
             'statusCode': 500,
             'body': f'Error uploading JSON data: {str(e)}'
@@ -272,8 +299,11 @@ def lambda_handler(event, context):
 
                 if is_bonus:
                     if bonus_function:
-                        bonus_prices = dt.get_bonus_price(size, bonus_type, base_price, unit_size)
-                        bonus_price, bonus_unit_price = bonus_prices[0], bonus_prices[1]
+                        bonus_prices = dt.get_bonus_price(size, bonus_type, base_price, unit_size, ignore_bonus_values_exact, ignore_bonus_values_contains)
+                        bonus_price, bonus_unit_price, unknown_bonus = bonus_prices[0], bonus_prices[1], bonus_prices[2]
+                        if unknown_bonus != "":
+                            if unknown_bonus not in unknown_bonus_values:
+                                unknown_bonus_values.append(unknown_bonus)
                     else:
                         bonus_unit_price = round(float(bonus_price) / float(base_price) * float(unit_price), 2)
 
@@ -341,11 +371,24 @@ def lambda_handler(event, context):
 
 
 
+
+    if len(unknown_bonus_values) > 0:
+        log.info('Mailing unknown bonus values')
+        content = "De volgende bonuswaarden konden niet worden verwerkt:\n" + "\n".join([f"-{bonus}" for bonus in unknown_bonus_values])
+        payload = {
+            "to": os.environ['MAIL_CONTACT'],
+            "subject": "Ongeldige bonuswaarden",
+            "content": content
+        }
+        response = lambda_client.invoke(
+            FunctionName='sendMail',  # Replace with the name of your sendMail function
+            InvocationType='Event',  # Use 'RequestResponse' for synchronous invocation
+            Payload=json.dumps(payload)
+        )
     log.info('Create json files')
 
     try:
-        s3 = boto3.client('s3')
-        bucket_name = 'ah-grocery'
+
         today = date.today()
         folder_name = today.strftime('%Y-%m-%d') + '/'
         # Write JSON data to a file-like object
@@ -380,6 +423,18 @@ def lambda_handler(event, context):
     except Exception as e:
         log.error('JSON files not created and uploaded to S3')
         log.error(e)
+        log.info('Mailing error')
+        payload = {
+            "to": os.environ['MAIL_CONTACT'],
+            "subject": "JSON files not created and uploaded to S3",
+            "content": str(e)
+        }
+
+        response = lambda_client.invoke(
+            FunctionName='sendMail',  # Replace with the name of your sendMail function
+            InvocationType='Event',  # Use 'RequestResponse' for synchronous invocation
+            Payload=json.dumps(payload)
+        )
         return {
             'statusCode': 500,
             'body': f'Error uploading JSON data: {str(e)}'
