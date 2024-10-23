@@ -7,80 +7,102 @@ log = logging.getLogger()
 log.setLevel("INFO")
 
 
+def get_bonus_price(size, bonus, og_price, unit_size, ignore_bonus_values_exact, ignore_bonus_values_contains):
+    try:
+        # ignore_bonus_values = ['bonus', 'online met gratis glas', 'online met gratis koeltas', 'gratis koeltas bij 2 6-packs']
+        bonus = bonus.lower()
+        absolute_price = 9999999999
+        absolute_discount = 0
+        factor = 1
+        unknown_bonus = ""
+        send_warning = True
 
+        if bonus in ignore_bonus_values_exact:
+            return [round(float(str(og_price).replace(',', '.')), 2), round(float(str(og_price).replace(',', '.'))/float(str(size).replace(',', '.'))*float(str(unit_size).replace(',', '.')), 2), unknown_bonus]
 
-def get_bonus_price(size, bonus, og_price, unit_size):
-    default_bonus_values = ['bonus']
-    bonus = bonus.lower()
-    absolute_price = 9999999
-    absolute_discount = 0
-    factor = 1
+        for item in ignore_bonus_values_contains:
+            if item in bonus:
+                return [round(float(str(og_price).replace(',', '.')), 2), round(float(str(og_price).replace(',', '.'))/float(str(size).replace(',', '.'))*float(str(unit_size).replace(',', '.')), 2), unknown_bonus]
 
-    if "volume voordeel" in bonus:
-        factor = (100-float(str(bonus[:bonus.find('%')]).replace(',', '.')))/100
-
-    elif 'stapelen voor' in bonus and 'per' not in bonus:
-        factor = 1/(float(str(bonus.split(' ')[0])))
-        absolute_price = round(factor * (float(str(bonus.split(' ')[3]).replace(',', '.'))), 2)
-
-    elif 'stuks voor' in bonus and 'per' not in bonus:
-        factor = 1/(float(str(bonus.split(' ')[0])))
-        absolute_price = round(factor * (float(str(bonus.split(' ')[3]).replace(',', '.'))), 2)
-
-    elif 'gram voor' in bonus and 'per' not in bonus:
-        absolute_price = float(str(bonus.split(' ')[3]).replace(',', '.'))
-
-
-    elif "korting" in bonus:
-
-        if "stapelen tot" in bonus:
-            factor = (100-float(str(bonus.split(' ')[2][:bonus.split(' ')[2].find('%')]).replace(',', '.')))/100
-        elif "online" in bonus:
-            factor = (100-float(str(bonus.split(' ')[1][:bonus.split(' ')[1].find('%')]).replace(',', '.')))/100
-        elif '%' in bonus:
+        if "volume voordeel" in bonus:
             factor = (100-float(str(bonus[:bonus.find('%')]).replace(',', '.')))/100
-        elif ' euro' in bonus:
-            absolute_discount = float(str(bonus[:bonus.find(' euro')]).replace(',', '.'))
-        else:
-            absolute_discount = float(str(bonus[0]).replace(',', '.'))
+            send_warning = False
 
+        elif 'stapelen voor' in bonus and 'per' not in bonus:
+            factor = 1/(float(str(bonus.split(' ')[0])))
+            absolute_price = round(factor * (float(str(bonus.split(' ')[3]).replace(',', '.'))), 2)
+            send_warning = False
+        elif 'stuks voor' in bonus and 'per' not in bonus:
+            factor = 1/(float(str(bonus.split(' ')[0])))
+            absolute_price = round(factor * (float(str(bonus.split(' ')[3]).replace(',', '.'))), 2)
+            send_warning = False
+        elif 'gram voor' in bonus and 'per' not in bonus:
+            absolute_price = float(str(bonus.split(' ')[3]).replace(',', '.'))
+            send_warning = False
 
-    elif "gratis" in bonus:
-        if len(bonus.split(" ")) == 2:
-            number = float(str(bonus.split(" ")[0][0]).replace(',', '.'))
-            factor = 1-(1/number)
-        else:
-            number1 = float(str(bonus.split(" ")[0]).replace(',', '.'))
-            number2 = float(str(bonus.split(" ")[2]).replace(',', '.'))
-            factor = number1 / (number1 + number2)
-    elif len(bonus.split(" ")) == 2:
-        if bonus.split(" ")[0] == 'voor':
-            absolute_price = bonus.split(" ")[1]
-    elif len(bonus.split(" ")) == 3:
-        if bonus.split(" ")[1] == 'voor':
-            absolute_price = float(str(bonus.split(" ")[2]).replace(',', '.')) / float(str(bonus.split(" ")[0]).replace(',', '.'))
-        elif bonus == '2e halve prijs':
-            factor = 0.75
-        elif "stapelen tot" in bonus:
-            factor = (100-float(str(bonus.split(' ')[2][:bonus.split(' ')[2].find('%')]).replace(',', '.')))/100
+        elif "korting" in bonus:
 
-    elif len(bonus.split(" ")) == 5:
-        if bonus.split(" ")[0] == 'per' and bonus.split(" ")[2] == 'gram':
-            absolute_price = float(str(size).replace(',', '.')) / float(str(bonus.split(" ")[1]).replace(',', '.')) * float(str(bonus.split(" ")[4]).replace(',', '.'))
+            if "stapelen tot" in bonus:
+                factor = (100-float(str(bonus.split(' ')[2][:bonus.split(' ')[2].find('%')]).replace(',', '.')))/100
+                send_warning = False
+            elif "online" in bonus:
+                factor = (100-float(str(bonus.split(' ')[1][:bonus.split(' ')[1].find('%')]).replace(',', '.')))/100
+                send_warning = False
+            elif '%' in bonus:
+                factor = (100-float(str(bonus[:bonus.find('%')]).replace(',', '.')))/100
+                send_warning = False
+            elif ' euro' in bonus:
+                absolute_discount = float(str(bonus[:bonus.find(' euro')]).replace(',', '.'))
+                send_warning = False
+            else:
+                absolute_discount = float(str(bonus[0]).replace(',', '.'))
+                send_warning = False
+        elif "gratis" in bonus:
+            if len(bonus.split(" ")) == 2:
+                number = float(str(bonus.split(" ")[0][0]).replace(',', '.'))
+                factor = 1-(1/number)
+                send_warning = False
+            else:
+                number1 = float(str(bonus.split(" ")[0]).replace(',', '.'))
+                number2 = float(str(bonus.split(" ")[2]).replace(',', '.'))
+                factor = number1 / (number1 + number2)
+                send_warning = False
+        elif len(bonus.split(" ")) == 2:
+            if bonus.split(" ")[0] == 'voor':
+                absolute_price = bonus.split(" ")[1]
+                send_warning = False
+        elif len(bonus.split(" ")) == 3:
+            if bonus.split(" ")[1] == 'voor':
+                absolute_price = float(str(bonus.split(" ")[2]).replace(',', '.')) / float(str(bonus.split(" ")[0]).replace(',', '.'))
+                send_warning = False
+            elif bonus == '2e halve prijs':
+                factor = 0.75
+                send_warning = False
 
-    new_price = (og_price - absolute_discount) * factor
-    if absolute_price != 9999999:
-        new_price = absolute_price
+            elif bonus.split(" ")[0] == "stapelen" and bonus.split(" ")[1] == "tot":
+                factor = (100-float(str(bonus.split(' ')[2][:bonus.split(' ')[2].find('%')]).replace(',', '.')))/100
+                send_warning = False
 
-    if new_price == og_price:
-        if bonus not in default_bonus_values:
-            log.warning(f'Bonustype {bonus} not in default')
+        elif len(bonus.split(" ")) == 5:
+            if bonus.split(" ")[0] == 'per' and bonus.split(" ")[2] == 'gram':
+                absolute_price = float(str(size).replace(',', '.')) / float(str(bonus.split(" ")[1]).replace(',', '.')) * float(str(bonus.split(" ")[4]).replace(',', '.'))
+                send_warning = False
 
+        new_price = (og_price - absolute_discount) * factor
+        if absolute_price != 9999999999:
+            new_price = absolute_price
 
-    new_price = str(new_price).replace(',', '.')
+        if new_price == og_price and send_warning:
+            unknown_bonus = bonus
+            log.info(f'Bonustype {bonus} not in default')
 
-    return [round(float(str(new_price).replace(',', '.')), 2), round(float(str(new_price).replace(',', '.'))/float(str(size).replace(',', '.'))*float(str(unit_size).replace(',', '.')), 2)]
+        new_price = str(new_price).replace(',', '.')
+        return [round(float(str(new_price).replace(',', '.')), 2), round(float(str(new_price).replace(',', '.'))/float(str(size).replace(',', '.'))*float(str(unit_size).replace(',', '.')), 2), unknown_bonus]
 
+    except Exception as e:
+        log.warning(f'Bonus {bonus} could not be determined')
+        log.warning(e)
+        return [round(float(str(og_price).replace(',', '.')), 2), round(float(str(og_price).replace(',', '.'))/float(str(size).replace(',', '.'))*float(str(unit_size).replace(',', '.')), 2), bonus]
 
 
 def search_alternative_unit(product_id, size, unit_type, unit_size, unit_price, connector, base_price):
