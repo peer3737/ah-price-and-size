@@ -2,6 +2,7 @@ import mysql.connector
 import datetime
 import logging
 log = logging.getLogger()
+import os
 
 def convert_to_date_string(data):
     if isinstance(data, datetime.date):  # Check if it's a datetime.date object
@@ -13,10 +14,10 @@ def convert_to_date_string(data):
 class Connection:
     def __init__(self):  # Constructor to initialize connection
         self.cnx = mysql.connector.connect(
-            user='root',
-            password='Q-WJL[4gSs0hGu/j',
-            host='localhost',
-            database='ah'
+            user=os.getenv('DB_USER'),
+            password=os.getenv('DB_PASSWORD'),
+            host=os.getenv('DB_SERVER'),
+            database=os.getenv('DB_NAME'),
         )
 
     def get_recent_main_data(self, table='main'):
