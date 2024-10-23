@@ -8,7 +8,7 @@ from datetime import date
 import boto3
 import logging
 import os
-import sys
+
 
 formatter = logging.Formatter('[%(levelname)s] %(message)s')
 log = logging.getLogger()
@@ -22,10 +22,8 @@ handler.setFormatter(formatter)
 log.addHandler(handler)
 
 
-
 def write_to_db(products, price_and_size, current_data):
     db = Connection()  # Establish the connection
-
     products_to_db = []
     prices_and_sizes_to_db = []
     for product in json.loads(products):
@@ -46,6 +44,7 @@ def write_to_db(products, price_and_size, current_data):
 
     db.close()
 
+
 def lambda_handler(event, context):
     lambda_client = boto3.client('lambda')
     s3 = boto3.client('s3')
@@ -59,7 +58,6 @@ def lambda_handler(event, context):
     # Write JSON data to a file-like object
 
     try:
-
         unknown_bonus_values = []
         today = date.today().strftime('%Y-%m-%d')
         log.info("Setup API connection with AH API")
@@ -108,7 +106,7 @@ def lambda_handler(event, context):
             "content": str(e)
         }
 
-        response = lambda_client.invoke(
+        lambda_client.invoke(
             FunctionName='sendMail',  # Replace with the name of your sendMail function
             InvocationType='Event',  # Use 'RequestResponse' for synchronous invocation
             Payload=json.dumps(payload)
@@ -117,7 +115,6 @@ def lambda_handler(event, context):
             'statusCode': 500,
             'body': f'Error uploading JSON data: {str(e)}'
         }
-
 
     for cat in category_list:
         log.info(f"{cat['name']} - {cat['id']} is being processed")
@@ -203,7 +200,6 @@ def lambda_handler(event, context):
                             is_bonus = False
                             bonus_type = ""
 
-
                     if 'priceBeforeBonus' in item and 'currentPrice' in item and is_bonus:
                         bonus_function = False
                         bonus_price = item['productCard']['currentPrice']
@@ -229,7 +225,6 @@ def lambda_handler(event, context):
                                 size = round(float(sizes[0]), 2)
                             unit_type = sizes[1]
                             unit_size = sizes[2]
-
 
                         if 'priceBeforeBonus' not in item and 'currentPrice' not in item:
                             continue
@@ -322,9 +317,9 @@ def lambda_handler(event, context):
                         insert_values = True
                     elif float(current_data[str(item_id)]["bonus_price"]) != float(bonus_price) or float(current_data[str(item_id)]["bonus_unit_price"]) != float(bonus_unit_price):
                         insert_values = True
-                    elif current_data[str(item_id)]["is_bonus"] == 0 and is_bonus == True:
+                    elif current_data[str(item_id)]["is_bonus"] == 0 and is_bonus:
                         insert_values = True
-                    elif current_data[str(item_id)]["is_bonus"] == 1 and is_bonus == False:
+                    elif current_data[str(item_id)]["is_bonus"] == 1 and not is_bonus:
                         insert_values = True
                     elif current_data[str(item_id)]["bonus_type"] is None:
                         current_data[str(item_id)]["bonus_type"] = ""
@@ -363,14 +358,10 @@ def lambda_handler(event, context):
                     output += f"{item_id}\t{name.strip()}\t{float(size)}\t{unit_type}\t{unit_size}\t{base_price}\t{unit_price}" \
                               f"\t{bonus_price}\t{bonus_unit_price}\t{is_bonus}\t{bonus_type}\t{bonus_start_date}\t{bonus_end_date}\n"
 
-
             except Exception as e:
                 log.error('An error occurred')
                 log.error(json.dumps(item))
                 log.error(e)
-
-
-
 
     if len(unknown_bonus_values) > 0:
         log.info('Mailing unknown bonus values')
@@ -380,7 +371,7 @@ def lambda_handler(event, context):
             "subject": "Ongeldige bonuswaarden",
             "content": content
         }
-        response = lambda_client.invoke(
+        lambda_client.invoke(
             FunctionName='sendMail',  # Replace with the name of your sendMail function
             InvocationType='Event',  # Use 'RequestResponse' for synchronous invocation
             Payload=json.dumps(payload)
@@ -414,7 +405,6 @@ def lambda_handler(event, context):
         log.info('JSON files successfully created and uploaded to S3')
         write_to_db(product_file, price_size_file, current_data)
 
-
         return {
             'statusCode': 200,
             'body': 'files created successfully'
@@ -430,7 +420,7 @@ def lambda_handler(event, context):
             "content": str(e)
         }
 
-        response = lambda_client.invoke(
+        lambda_client.invoke(
             FunctionName='sendMail',  # Replace with the name of your sendMail function
             InvocationType='Event',  # Use 'RequestResponse' for synchronous invocation
             Payload=json.dumps(payload)
