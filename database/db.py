@@ -12,12 +12,12 @@ def convert_to_date_string(data):
 
 
 class Connection:
-    def __init__(self):  # Constructor to initialize connection
+    def __init__(self, user, password, host):  # Constructor to initialize connection
         self.cnx = mysql.connector.connect(
-            user=os.getenv('DB_USER'),
-            password=os.getenv('DB_PASSWORD'),
-            host=os.getenv('DB_SERVER'),
-            database=os.getenv('DB_NAME'),
+            user=user,
+            password=password,
+            host=host,
+            database=os.environ['DB_NAME']
         )
 
     def get_recent_main_data(self, table='main'):

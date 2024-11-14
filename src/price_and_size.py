@@ -1,6 +1,7 @@
 from database.db import Connection
 import supporting.data_transform as dt
 import supporting.general as sg
+from supporting import aws
 from supporting.ah import AHConnector
 import json
 import math
@@ -22,8 +23,8 @@ handler.setFormatter(formatter)
 log.addHandler(handler)
 
 
-def write_to_db(products, price_and_size, current_data):
-    db = Connection()  # Establish the connection
+def write_to_db(products, price_and_size, current_data, db_user, db_password, db_host):
+    db = Connection(user=db_user, password=db_password, host=db_host)  # Establish the connection
     products_to_db = []
     prices_and_sizes_to_db = []
     for product in json.loads(products):
@@ -46,6 +47,11 @@ def write_to_db(products, price_and_size, current_data):
 
 
 def lambda_handler(event, context):
+    database_id = os.environ['DATABASE_ID']
+    database_settings = aws.dynamodb_query(table='database_settings', id=database_id)
+    db_host = database_settings[0]['host']
+    db_user = database_settings[0]['user']
+    db_password = database_settings[0]['password']
     lambda_client = boto3.client('lambda')
     s3 = boto3.client('s3')
     bucket_name = os.environ['MAIN_BUCKET']
@@ -62,7 +68,7 @@ def lambda_handler(event, context):
         today = date.today().strftime('%Y-%m-%d')
         log.info("Setup API connection with AH API")
         connector = AHConnector()
-        db = Connection()  # Establish the connection
+        db = Connection(user=db_user, password=db_password, host=db_host)  # Establish the connection
         current_data = db.get_recent_main_data()
         db.close()
         page_size = 1000
@@ -403,7 +409,7 @@ def lambda_handler(event, context):
             Body=current_data_file
         )
         log.info('JSON files successfully created and uploaded to S3')
-        write_to_db(product_file, price_size_file, current_data)
+        write_to_db(product_file, price_size_file, current_data, db_user, db_password, db_host)
 
         return {
             'statusCode': 200,
