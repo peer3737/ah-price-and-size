@@ -7,7 +7,7 @@ log = logging.getLogger()
 log.setLevel("INFO")
 
 
-def get_bonus_price(size, bonus, og_price, unit_size, ignore_bonus_values_exact, ignore_bonus_values_contains):
+def get_bonus_price(product_id, size, bonus, og_price, unit_size, ignore_bonus_values_exact, ignore_bonus_values_contains):
     try:
         # ignore_bonus_values = ['bonus', 'online met gratis glas', 'online met gratis koeltas', 'gratis koeltas bij 2 6-packs']
         bonus = bonus.lower()
@@ -95,6 +95,7 @@ def get_bonus_price(size, bonus, og_price, unit_size, ignore_bonus_values_exact,
         if new_price == og_price and send_warning:
             unknown_bonus = bonus
             log.info(f'Bonustype {bonus} not in default')
+            log.info(f'Bonustype found in product with ID = {product_id}')
 
         new_price = str(new_price).replace(',', '.')
         return [round(float(str(new_price).replace(',', '.')), 2), round(float(str(new_price).replace(',', '.'))/float(str(size).replace(',', '.'))*float(str(unit_size).replace(',', '.')), 2), unknown_bonus]

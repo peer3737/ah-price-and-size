@@ -300,7 +300,7 @@ def lambda_handler(event, context):
 
                 if is_bonus:
                     if bonus_function:
-                        bonus_prices = dt.get_bonus_price(size, bonus_type, base_price, unit_size, ignore_bonus_values_exact, ignore_bonus_values_contains)
+                        bonus_prices = dt.get_bonus_price(item_id, size, bonus_type, base_price, unit_size, ignore_bonus_values_exact, ignore_bonus_values_contains)
                         bonus_price, bonus_unit_price, unknown_bonus = bonus_prices[0], bonus_prices[1], bonus_prices[2]
                         if unknown_bonus != "":
                             if unknown_bonus not in unknown_bonus_values:
