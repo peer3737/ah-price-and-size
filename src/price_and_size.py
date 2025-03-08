@@ -49,7 +49,7 @@ def write_to_db(products, price_and_size, current_data, db_user, db_password, db
 def lambda_handler(event, context):
     database_id = os.environ['DATABASE_ID']
     database_settings = aws.dynamodb_query(table='database_settings', id=database_id)
-    db_host = database_settings[0]['host']
+    db_host = database_settings[0]['host'][0]
     db_user = database_settings[0]['user']
     db_password = database_settings[0]['password']
     lambda_client = boto3.client('lambda')
@@ -435,3 +435,6 @@ def lambda_handler(event, context):
             'statusCode': 500,
             'body': f'Error uploading JSON data: {str(e)}'
         }
+
+
+lambda_handler(None, None)
